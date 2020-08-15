@@ -9,6 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 import time
 import re
+import os
 
 LINK = 'https://jkanime.net/the-god-of-high-school'
 LINK_2 = 'https://jkanime.net/major-2nd-tv-2nd-season'
@@ -22,7 +23,7 @@ XPATH_LAST_NAVIGATION = '//a[@class="numbers"][last()]/text()'
 
 def init_driver():
     option = webdriver.ChromeOptions()
-    option.add_argument('headless')
+    # option.add_argument('headless')
     driver = webdriver.Chrome(ChromeDriverManager().install(), options=option)
     return driver
 
@@ -60,24 +61,20 @@ def fetch(browser, url, xpath, sleep=0):
     return scrape(browser, xpath)
 
 
-def input_data():
+def input_link():
     link = input('Enter link: ')
-    embed = input('Do you want get embed url\'s? [y]es - [n]o: ')[0]
 
-    get_embed = embed.lower() == 'y'
-
-    # remove last /
-    if link[-1:] == '/':
-        return {'link': link[0:-1], 'embed': get_embed}
-
-    return {'link': link, 'embed': get_embed}
+    return link if not link[-1:] == '/' else link[0:-1]
 
 
 if __name__ == '__main__':
-    input_data = input_data()
+    folder = 'animes'
+    try:
+        os.stat(folder)
+    except:
+        os.mkdir(folder)
 
-    link = input_data['link']
-    embed = input_data['embed']
+    link = input_link()
     title = re.sub(r'https://jkanime.net/', '', link)
 
     driver = init_driver()
@@ -85,16 +82,15 @@ if __name__ == '__main__':
 
     for index, link in enumerate(links):
         iframe_link = fetch(browser=driver, url=link,
-                            xpath=XPATH_IFRAME, sleep=1)[0]
+                            xpath=XPATH_IFRAME, sleep=10)[0]
         src = fetch(browser=driver, url=iframe_link, xpath=XPATH_SOURCE)[0]
 
-        with open(f'{title}.txt', mode='a', encoding='utf-8') as f:
-            f.write('**** **** **** **** **** **** **** **** **** ****\n')
-            f.write(f'EPISODE {index + 1}:\n')
-            f.write(f'  LINK: {src}\n')
-            f.write(f'  EMBED: {iframe_link}\n')
+        with open(f'{folder}/{title}.txt', mode='a', encoding='utf-8') as f:
+            f.write(f'**** **** **** **** EPISODE {index + 1} **** **** **** ****\n')
+            f.write(f'{src}\n')
             f.write('**** **** **** **** **** **** **** **** **** ****\n\n')
 
         print(f'Episode {index + 1} done')
 
+    print('**** **** Scraping successfully! **** ****')
     driver.quit()
