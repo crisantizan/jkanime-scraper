@@ -2,28 +2,22 @@ import requests
 from lxml import html
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
 import time
 import re
 import os
 
-LINK = 'https://jkanime.net/the-god-of-high-school'
-LINK_2 = 'https://jkanime.net/major-2nd-tv-2nd-season'
-# XPATH_GET_LINKS = '//div[@id="episodes-content"]/div'
-XPATH_GET_LINKS = '//div[@id="episodes-content"]/div/a[@class="cap-header"]/@href'
+XPATH_LINKS = '//div[@id="episodes-content"]/div/a[@class="cap-header"]/@href'
 XPATH_IFRAME = '//iframe[@class="player_conte"]/@src'
 XPATH_SOURCE = '//source/@src'
-XPATH_NAVIGATION = '//a[@class="numbers"]'
-XPATH_LAST_NAVIGATION = '//a[@class="numbers"][last()]/text()'
+XPATH_NAVIGATION = '//a[@class="numbers"][last()]/text()'
 
 
-def init_driver():
+def init_driver(headless=True):
     option = webdriver.ChromeOptions()
-    # option.add_argument('headless')
+
+    if headless:
+        option.add_argument('headless')
+
     driver = webdriver.Chrome(ChromeDriverManager().install(), options=option)
     return driver
 
@@ -38,59 +32,66 @@ def scrape(browser, xpath):
 
 
 def get_links(browser, link):
-    browser.get(link)
-    time.sleep(1)
+    # get pagination number, in this format: 1 - 6, 7 - 13
+    pag = fetch(browser=browser, url=link, xpath=XPATH_NAVIGATION)
+    # get last number and clean white spaces
+    pag = pag[0].split('-')[1].strip()
 
-    links = []
-
-    last_page = scrape(browser, XPATH_LAST_NAVIGATION)[0]
-    pages = int(last_page.split('-')[1].strip())
-
-    for num in range(pages):
-        links.append(f'{link}/{num+1}')
-
-    return links
+    pages = int(pag)
+    # generate links
+    return [f'{link}/{num+1}' for num in range(pages)]
 
 
-def fetch(browser, url, xpath, sleep=0):
+def fetch(browser, url, xpath):
     browser.get(url)
 
-    if not sleep == 0:
-        time.sleep(sleep)
-
-    return scrape(browser, xpath)
+    while True:
+        time.sleep(0.2)
+        data = scrape(browser, xpath)
+        if data:
+            return data
 
 
 def input_link():
     link = input('Enter link: ')
-
+    # if there is in the end a "/" remove it
     return link if not link[-1:] == '/' else link[0:-1]
 
 
-if __name__ == '__main__':
+def manage_folder():
     folder = 'animes'
     try:
         os.stat(folder)
     except:
         os.mkdir(folder)
+    finally:
+        return folder
 
+
+def write_in_file(filename, episode, url):
+    with open(filename, mode='a', encoding='utf-8') as f:
+        f.write(f'EPISODE {episode}\n')
+        f.write(f'{url}\n\n')
+
+
+def main():
     link = input_link()
+    folder = manage_folder()
     title = re.sub(r'https://jkanime.net/', '', link)
 
-    driver = init_driver()
+    driver = init_driver(headless=False)
     links = get_links(browser=driver, link=link)
 
     for index, link in enumerate(links):
-        iframe_link = fetch(browser=driver, url=link,
-                            xpath=XPATH_IFRAME, sleep=10)[0]
+        iframe_link = fetch(browser=driver, url=link, xpath=XPATH_IFRAME)[0]
         src = fetch(browser=driver, url=iframe_link, xpath=XPATH_SOURCE)[0]
 
-        with open(f'{folder}/{title}.txt', mode='a', encoding='utf-8') as f:
-            f.write(f'**** **** **** **** EPISODE {index + 1} **** **** **** ****\n')
-            f.write(f'{src}\n')
-            f.write('**** **** **** **** **** **** **** **** **** ****\n\n')
-
+        write_in_file(f'{folder}/{title}.txt', index + 1, src)
         print(f'Episode {index + 1} done')
 
     print('**** **** Scraping successfully! **** ****')
     driver.quit()
+
+
+if __name__ == '__main__':
+    main()
