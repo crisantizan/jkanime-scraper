@@ -12,6 +12,7 @@ class Scraper:
         # regular expressions
         self._regex = {
             'valid_link': r'https://jkanime.net/',
+            'episode': r'^EPISODE [0-9]+$'
         }
 
         # xpath expressions
@@ -22,14 +23,15 @@ class Scraper:
             'NAVIGATION': '//a[@class="numbers"][last()]/text()'
         }
 
-        self.headless = headless
         self.link = self._input_link()
-        self._browser = self._init_browser()
+        self._folder = self._manage_folder()
+        self._browser = self._init_browser(headless)
+        self.title = re.sub(self._regex.get('valid_link'), '', self.link)
 
-    def _init_browser(self):
+    def _init_browser(self, headless):
         option = webdriver.ChromeOptions()
 
-        if self.headless:
+        if headless:
             option.add_argument('headless')
 
         browser = webdriver.Chrome(
@@ -93,17 +95,50 @@ class Scraper:
     def _invalid_link(self, link):
         return not re.match(self._regex.get('valid_link'), link)
 
-    def run(self):
-        folder = self._manage_folder()
-        title = re.sub(self._regex.get('valid_link'), '', self.link)
+    def _last_episode(self):
+        last = 0
+        # if the current anime already locally exists
+        try:
+            os.stat(self.get_path())
+            # open file and read content
+            with open(self.get_path(), mode='r') as f:
+                lines = f.readlines()
+                for line in lines:
+                    if not re.match(self._regex.get('episode'), line):
+                        continue
 
+                    # get episode number
+                    last = int(line.strip().replace('EPISODE ', ''))
+
+            return last
+
+        except:
+            # if not, return zero
+            return last
+
+    def get_path(self):
+        return f'{self._folder}/{self.title}.txt'
+
+    def run(self):
+        last_episode = self._last_episode()
         links = self._get_links()
 
-        for index, link in enumerate(links):
+        # remove episodes already downloaded
+        if not last_episode == 0:
+            links = links[last_episode:]
+
+        # up to date, stop program
+        if not links:
+            print('\n**** **** You\'re up to date with this anime! **** **** \n')
+            self._browser.quit()
+            sys.exit(0)
+
+        # get new episodes, start after from the last
+        for index, link in enumerate(links, start=last_episode):
             iframe_link = self._fetch(url=link, xpath=self._xpath['IFRAME'])[0]
             src = self._fetch(url=iframe_link, xpath=self._xpath['SOURCE'])[0]
-
-            self._write_in_file(f'{folder}/{title}.txt', index + 1, src)
+            # write the current episode in file
+            self._write_in_file(self.get_path(), index + 1, src)
             print(f'Episode {index + 1} done')
 
         print('**** **** Scraping successfully! **** ****')
