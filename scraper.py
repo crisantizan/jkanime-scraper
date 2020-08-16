@@ -4,10 +4,16 @@ from webdriver_manager.chrome import ChromeDriverManager
 import time
 import re
 import os
+import sys
 
 
 class Scraper:
     def __init__(self, headless=False):
+        # regular expressions
+        self._regex = {
+            'valid_link': r'https://jkanime.net/',
+        }
+
         # xpath expressions
         self._xpath = {
             'LINKS': '//div[@id="episodes-content"]/div/a[@class="cap-header"]/@href',
@@ -15,8 +21,8 @@ class Scraper:
             'SOURCE': '//source/@src',
             'NAVIGATION': '//a[@class="numbers"][last()]/text()'
         }
-        self.headless = headless
 
+        self.headless = headless
         self.link = self._input_link()
         self._browser = self._init_browser()
 
@@ -32,6 +38,13 @@ class Scraper:
 
     def _input_link(self):
         link = input('Enter link: ')
+
+        # validate entered link
+        if self._invalid_link(link):
+            print(
+                '\nError: the link entered is invalid, not comes from https://jkanime.net\n')
+            sys.exit(1)
+
         # if there is in the end a "/" remove it
         return link if not link[-1:] == '/' else link[0:-1]
 
@@ -77,9 +90,12 @@ class Scraper:
         finally:
             return folder
 
+    def _invalid_link(self, link):
+        return not re.match(self._regex.get('valid_link'), link)
+
     def run(self):
         folder = self._manage_folder()
-        title = re.sub(r'https://jkanime.net/', '', self.link)
+        title = re.sub(self._regex.get('valid_link'), '', self.link)
 
         links = self._get_links()
 
