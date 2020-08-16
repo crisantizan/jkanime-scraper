@@ -46,7 +46,7 @@ def fetch(browser, url, xpath):
     browser.get(url)
 
     while True:
-        time.sleep(0.2)
+        time.sleep(0.3)
         data = scrape(browser, xpath)
         if data:
             return data
