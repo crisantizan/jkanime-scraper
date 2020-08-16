@@ -138,14 +138,8 @@ class Scraper:
             iframe_link = self._fetch(url=link, xpath=self._xpath['IFRAME'])[0]
             src = self._fetch(url=iframe_link, xpath=self._xpath['SOURCE'])[0]
             # write the current episode in file
-            self._write_in_file(self.get_path(), index + 1, src)
+            self._write_in_file(self.get_path(), episode=index + 1, url=src)
             print(f'Episode {index + 1} done')
 
         print('**** **** Scraping successfully! **** ****')
         self._browser.quit()
-
-
-if __name__ == '__main__':
-    scraper = Scraper()
-
-    scraper.run()
