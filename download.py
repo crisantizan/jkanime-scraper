@@ -2,21 +2,7 @@ import os
 import re
 import wget
 import sys
-
-
-def validate_file(path):
-    try:
-        os.stat(path)
-        return True
-    except:
-        return False
-
-
-def mkdir(path):
-    try:
-        os.stat(path)
-    except:
-        os.mkdir(path)
+import helper
 
 
 def get_params(txt_path):
@@ -78,7 +64,7 @@ def main():
 
     anime_file_path = os.path.join('animes', f"{params.get('anime')}.txt")
     # verify anime path
-    if not validate_file(anime_file_path):
+    if not helper.path_exists(anime_file_path):
         print(f"Anime \"{params.get('anime')}\" doesn't exists, try again.")
         sys.exit(0)
 
@@ -86,7 +72,7 @@ def main():
     anime_name = params.get('name')
 
     # create output folder if not exists
-    mkdir(output_folder)
+    helper.mkdir(output_folder)
     # videos urls
     urls = get_urls(path=anime_file_path)
     # remove temp files
