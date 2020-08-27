@@ -38,6 +38,15 @@ def remove_temp_files(output_folder):
             os.remove(os.path.join(output_folder, tmp_file))
 
 
+def custom_bar(current, total, width=80):
+    percent = int(current / total * 100)
+    current = helper.format_size(current)
+    total = helper.format_size(total)
+    progress = f'Downloading: {percent}% [{current} of {total}]'
+
+    sys.stdout.write('\r' + progress + ' ')
+
+
 def download_video(url, output_folder, anime_name, episode):
     episode = f'0{episode}' if episode < 10 else episode
     extension = os.path.splitext(url)[1]
@@ -48,8 +57,8 @@ def download_video(url, output_folder, anime_name, episode):
         os.stat(complete_path)
         print(f'\nEpisode {episode} already downloaded')
     except:
-        print(f'\nDownloading episode: {episode}')
-        wget.download(url, complete_path)
+        print(f'\nDownloading file: {episode} {anime_name}{extension}')
+        wget.download(url=url, out=complete_path, bar=custom_bar)
 
 
 def main():
