@@ -23,10 +23,14 @@ class Scraper:
             'NAVIGATION': '//a[@class="numbers"][last()]/text()'
         }
 
-        self.link = self._input_link()
+        self.params = self._get_params()
         self._folder = self._manage_folder()
         self._browser = self._init_browser(headless)
-        self.title = re.sub(self._regex.get('valid_link'), '', self.link)
+        self.title = re.sub(
+            self._regex.get('valid_link'),
+            '',
+            self.params.get('link')
+        )
 
     def _init_browser(self, headless):
         option = webdriver.ChromeOptions()
@@ -38,27 +42,86 @@ class Scraper:
             ChromeDriverManager().install(), options=option)
         return browser
 
-    def _input_link(self):
-        link = input('Enter link: ')
+    def _get_params(self):
+        link = None
+        scope = None
 
-        # validate entered link
-        if self._invalid_link(link):
-            print(
-                '\nError: the link entered is invalid, not comes from https://jkanime.net\n')
+        try:
+            link = sys.argv[1]
+
+            # validate entered link
+            if self._invalid_link(link):
+                print(
+                    '\nError: the link entered is invalid, not comes from https://jkanime.net\n')
+                sys.exit(1)
+
+            # if there is in the end a "/" remove it
+            link = link if not link[-1:] == '/' else link[0:-1]
+        except:
+            print('\nLink of the anime is required!')
             sys.exit(1)
 
-        # if there is in the end a "/" remove it
-        return link if not link[-1:] == '/' else link[0:-1]
+        # default values
+        start = 0
+        end = -1
+        # if the custom scope already passed
+        try:
+            scope = sys.argv[2]
+            temp = scope.split(':')
 
-    def _get_links(self):
+            if len(temp) > 0:
+                # verify custom scope
+                for index, val in enumerate(temp):
+                    if not val.isnumeric():
+                        print('\nScope param should be a numeric value')
+                        sys.exit(1)
+
+                    temp[index] = int(temp[index])
+
+                if temp[0] > 1:
+                    start = temp[0] - 1
+
+                if temp[1] and temp[1] > start:
+                    end = temp[1]
+
+            # return values
+            return {'link': link, 'start': start, 'end': end}
+        except:
+            return {'link': link, 'start': start, 'end': end}
+
+    def _get_links(self, last_episode):
+        link = self.params.get('link')
         # get pagination number, in this format: 1 - 6, 7 - 13
-        pag = self._fetch(url=self.link, xpath=self._xpath['NAVIGATION'])
+        pag = self._fetch(url=link, xpath=self._xpath['NAVIGATION'])
         # get last number and clean white spaces
         pag = pag[0].split('-')[1].strip()
 
         pages = int(pag)
         # generate links
-        return [f'{self.link}/{num+1}' for num in range(pages)]
+        links = [f'{link}/{num+1}' for num in range(pages)]
+
+        start = self.params.get('start')
+        end = self.params.get('end')
+
+        length = len(links)
+        if (start == 0 and end == -1) or not (start <= length and end <= length):
+            # normal, verify last episode
+            if last_episode == 0:
+                return [links, 0]
+            else:
+                return [links[last_episode:], last_episode]
+
+        if last_episode >= start + 1:
+            if last_episode < end:
+                return [links[last_episode:end], last_episode]
+
+            return [[], start]
+        elif start > 0 and end == -1:
+            # from x to final
+            return [links[start:], start]
+        else:
+            # from x to x
+            return [links[start:end], start]
 
     def _fetch(self, url, xpath):
         self._browser.get(url)
@@ -120,12 +183,9 @@ class Scraper:
         return f'{self._folder}/{self.title}.txt'
 
     def run(self):
-        last_episode = self._last_episode()
-        links = self._get_links()
-
-        # remove episodes already downloaded
-        if not last_episode == 0:
-            links = links[last_episode:]
+        [links, last_episode] = self._get_links(
+            last_episode=self._last_episode()
+        )
 
         # up to date, stop program
         if not links:
