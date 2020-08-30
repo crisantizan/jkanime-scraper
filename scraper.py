@@ -12,7 +12,7 @@ class Scraper:
         # regular expressions
         self._regex = {
             'valid_link': r'https://jkanime.net/',
-            'episode': r'^EPISODE [0-9]+$'
+            'episode': r'^E[0-9]+$'
         }
 
         # xpath expressions
@@ -143,8 +143,7 @@ class Scraper:
 
     def _write_in_file(self, filename, episode, url):
         with open(filename, mode='a', encoding='utf-8') as f:
-            f.write(f'EPISODE {episode}\n')
-            f.write(f'{url}\n\n')
+            f.write(f'{episode} {url}\n')
 
     def _manage_folder(self):
         folder = 'animes'
@@ -158,7 +157,7 @@ class Scraper:
     def _invalid_link(self, link):
         return not re.match(self._regex.get('valid_link'), link)
 
-    def _last_episode(self):
+    def last_episode(self):
         last = 0
         # if the current anime already locally exists
         try:
@@ -171,7 +170,8 @@ class Scraper:
                         continue
 
                     # get episode number
-                    last = int(line.strip().replace('EPISODE ', ''))
+                    # 1 https://link.com
+                    last = int(line.strip().split(' ')[0])
 
             return last
 
@@ -184,7 +184,7 @@ class Scraper:
 
     def run(self):
         [links, last_episode] = self._get_links(
-            last_episode=self._last_episode()
+            last_episode=self.last_episode()
         )
 
         # up to date, stop program
